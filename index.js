@@ -5,78 +5,90 @@ canvas.height = 500;
 let radius = 40;
 let x = canvas.width-500;
 let y = canvas.height-40;
-let height;
+const dradius = 10;
+const drops = [];
+const colors = ['red', 'green', 'blue', 'yellow'];
+const circleColors = ['red', 'green', 'blue', 'yellow'];
+let randomcolor = circleColors[Math.floor(Math.random()*colors.length)];
+
+
+function spwanDrops(){
+    const drop = {
+	x : Math.random() * canvas.width,
+	y: 0,
+	color: colors[Math.floor(Math.random()*colors.length)]
+    };
+
+    drops.push(drop);
+}
+
 
 function circle(){
     context.beginPath();
     context.arc(x, y, radius, 0, 2 * Math.PI);
+    context.fillStyle = randomcolor;
     context.fill();
     context.closePath();
-    height = 2 * 40;
 }
-
-
-
-function clear(){
-     context.clearRect(0, 0, canvas.width, canvas.height);
-}
-
-
 
 function movement(){
     switch (event.key) {
     case 'ArrowUp':
         if (y - radius - 10 >= 0) {
-            y -= 10;
+	    y -= 10;
         }
         break;
 
     case 'ArrowDown':
         if (y + radius + 10 <= canvas.height) {
-            y += 10;
+	    y += 10;
         }
         break;
 
     case 'ArrowLeft':
         if (x - radius - 10 >= 0) {
-            x -= 10;
+	    x -= 10;
         }
         break;
 
     case 'ArrowRight':
         if (x + radius + 10 <= canvas.width) {
-            x += 10;
+	    x += 10;
         }
-	event.preventDefault();
+
         break;
     }
-    clear()
+    event.preventDefault();
     circle()
 }
 
 document.addEventListener("keydown", movement)
 
-circle();
 
-//TODO: add the rain effect 
-function colorDrops(){
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    let dx = Math.random() * canvas.width;
-    let dy = 0;
-    let dradius = 10;
-    const colors = ['red', 'green', 'blue', 'yellow'];
-    context.beginPath();
-    for(let i = 0; i < canvas.width; i++){
-	dy += 3;
-	context.arc(dx, dy, dradius, 0, 2 * Math.PI);
+
+
+
+const colorDrops = () =>{
+  context.clearRect(0, 0, canvas.width, canvas.height);
+    for(let drop of drops){
+	drop.y += 3;
+	context.beginPath();
+	context.arc(drop.x, drop.y, dradius, 0, 2 * Math.PI);
+	context.fillStyle = drop.color;
+	context.fill();
+	context.closePath();
     }
     
-    colors.forEach(element => {
-	context.fillStyle = element
-    })
-    context.fill();
-    context.closePath();
-//    requestAnimationFrame(colorDrops); 
+    if (Math.random() < 0.1) {
+        spwanDrops()
+    }
+
+    circle();   
+    requestAnimationFrame(colorDrops);
+
 }
 
 colorDrops();
+
+
+
