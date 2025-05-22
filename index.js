@@ -4,6 +4,7 @@ const context2 = document.getElementById("scoreCanvas").getContext("2d");
 canvas.width = 1000;
 canvas.height = 500;
 
+let gamestate = "home"
 let radius = 40;
 let x = canvas.width-500;
 let y = canvas.height-40;
@@ -13,7 +14,46 @@ const colors = ['red', 'green', 'blue', 'yellow'];
 const circleColors = ['red', 'green', 'blue', 'yellow'];
 let playercolor = circleColors[Math.floor(Math.random()*colors.length)];
 let score = 0;
-let animationId
+let animationId;
+let clickBound = false;
+
+function init (){
+    if(gamestate === "home"){
+	playButton()
+    }
+
+}
+
+function playButton(){
+    context.strokeRect(canvas.width / 2 - 120, canvas.height / 2, 200, 50)  
+    context.font = "40px Mono";
+    context.fillText("▶ Play", canvas.width / 2 - 80, 285);
+    if (!clickBound) {
+        canvas.addEventListener("click", handlePlayClick);
+        clickBound = true;
+    }
+}
+
+function handlePlayClick(event){
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    const symbolX = canvas.width / 2 - 100;
+    const symbolY = canvas.height / 2;
+    const symbolWidth = 200;
+    const symbolHeight = 50;
+
+    if (
+        mouseX >= symbolX &&
+        mouseX <= symbolX + symbolWidth &&
+        mouseY >= symbolY &&
+        mouseY <= symbolY + symbolHeight
+    ) {
+        gamestate = "play";
+	colorDrops();
+    }
+}
+
 
 function spwanDrops(){
     const drop = {
@@ -102,14 +142,19 @@ const endGame = () =>{
 		mouseY >= symbolY - symbolHeight &&
 		mouseY <= symbolY
 	) {
-	    window.location.reload(); 
+	    gamestate = "play";
+	    window.location.reload();
+	
 	}
     });
 }
 
 
+
 const colorDrops = () =>{
-  context.clearRect(0, 0, canvas.width, canvas.height);
+    if (gamestate !== "play") return;
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
     for(let i = 0; i < drops.length; i++){
 	let drop = drops[i]
 	drop.y += 3;
@@ -140,11 +185,10 @@ const colorDrops = () =>{
     }
     
     circle();   
+
     animationId = requestAnimationFrame(colorDrops);
+  
 
 }
 
-colorDrops();
-
-
-
+init();
