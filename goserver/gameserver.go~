@@ -1,0 +1,19 @@
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"io"
+)
+func newlink(w http.ResponseWriter, r *http.Request){
+	bodyreq, _ := io.ReadAll(r.Body)
+	data := string(bodyreq)
+	fmt.Println(data);
+
+}
+
+func main (){
+
+	http.HandleFunc("/newlink", newlink)
+	http.ListenAndServe(":6969", nil)
+}

@@ -1,3 +1,5 @@
+import handleUser from './handleuser.js'
+
 const context = document.getElementById("canvas").getContext("2d");
 const context2 = document.getElementById("scoreCanvas").getContext("2d");
 
@@ -17,12 +19,29 @@ let score = 0;
 let animationId;
 let clickBound = false;
 
+
 function init (){
     if(gamestate === "home"){
 	playButton()
     }
 
 }
+
+function inviteFriend(){
+    if (document.getElementById("inviteFriend")) return;
+    const button = document.createElement("Button")
+    button.setAttribute("id","inviteFriend");
+    button.textContent = "Invite Friend"
+    const div = document.querySelector(".canvas")
+    div.insertBefore(button, div.firstChild)
+    button.onclick = async function (){
+	let result = await handleUser()
+	console.log(result)
+    }
+
+
+}
+
 
 function playButton(){
     context.strokeRect(canvas.width / 2 - 120, canvas.height / 2, 200, 50)  
@@ -51,8 +70,11 @@ function handlePlayClick(event){
     ) {
         gamestate = "play";
 	colorDrops();
+	inviteFriend();
     }
 }
+
+
 
 
 function spwanDrops(){
