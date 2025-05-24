@@ -36,7 +36,9 @@ function inviteFriend(){
     div.insertBefore(button, div.firstChild)
     button.onclick = async function (){
 	let result = await handleUser()
-	console.log(result)
+	let url = location.href.slice(0,-1)
+	let resultandurl = url+result;
+	prompt("Copy the result below:", resultandurl);
     }
 
 
