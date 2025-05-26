@@ -10,6 +10,11 @@ import (
 type userId struct{
 	uid string
 }
+
+func createWebsocket(q string){
+	fmt.println(q)
+
+}
 func createId(id string) string{
 	if id == "create new link"{
 		return uuid.New().String();
@@ -31,10 +36,12 @@ func newlink(w http.ResponseWriter, r *http.Request){
 	data := string(bodyreq)
 	id := createId(data)
 	path := r.URL.Path
-	sendData := path+"?="+id
+	sendData := path+"?identifier="+id
 	u := userId{uid: sendData}
-	w.Write([]byte(u.uid))
-
+	w.Write([]byte("http://localhost:6969"+u.uid))
+	// when the link is opened create websocket
+	query := r.URL.Query().Get("identifier")
+	createWebsocket(query)
 }
 
 func main (){
