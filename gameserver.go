@@ -20,16 +20,7 @@ type userId struct{
 }
 
 func createWebsocket(w http.ResponseWriter, r *http.Request){
-	if connection == false{
-		return
-	}
-	
-	var conn *websocket.Conn
-	var err error
-	if connection == true{
-		conn, err = upgrader.Upgrade(w, r, nil)
-	}
-	
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil{
 		fmt.Println(err)
 		return
@@ -44,9 +35,9 @@ func createWebsocket(w http.ResponseWriter, r *http.Request){
 			break
 		}
 
-		fmt.Println(message)
-
-		if err := conn.WriteMessage(messageType, message); err != nil {
+		fmt.Println(string(message))
+		serverMessage := "Request from Server"
+		if err := conn.WriteMessage(messageType, []byte(serverMessage)); err != nil {
 			fmt.Println("Write error:", err)
 			break
 		}		

@@ -1,5 +1,4 @@
 import handleUser from './handleuser.js'
-
 const context = document.getElementById("canvas").getContext("2d");
 const context2 = document.getElementById("scoreCanvas").getContext("2d");
 
@@ -18,7 +17,7 @@ let playercolor = circleColors[Math.floor(Math.random()*colors.length)];
 let score = 0;
 let animationId;
 let clickBound = false;
-
+let animationControl = true;
 
 function init (){
     if(gamestate === "home"){
@@ -41,6 +40,7 @@ function copyUrlPrompt(urlToShow){
     context.font = "20px Arial";
     context.fillText(urlToShow, rectX + 40, rectY + 50);
     cancelAnimationFrame(animationId);
+    animationControl = false
     canvas.addEventListener("click", (event) => {
 	const rect = canvas.getBoundingClientRect();
 	const x = event.clientX - rect.left
@@ -57,6 +57,9 @@ function copyUrlPrompt(urlToShow){
                 .then(() => {
 		    alert("Copied: " + urlToShow)
 		    context.clearRect(rectX, rectY, rectWidth, rectHeight)
+		    animationControl = true;
+		    animationId = requestAnimationFrame(colorDrops);
+
 		})
                 .catch(err => console.error("Copy failed:", err));
         }
@@ -74,7 +77,7 @@ function inviteFriend(){
     button.onclick = async function (){
 	let result = await handleUser()
 	copyUrlPrompt(result)
-//	window.location.replace(result)
+	history.replaceState({},'',result)
     }
 
 
@@ -107,13 +110,12 @@ function handlePlayClick(event){
         mouseY <= symbolY + symbolHeight
     ) {
         gamestate = "play";
-	colorDrops();
+//	colorDrops();
+	animationId = requestAnimationFrame(colorDrops)
 	inviteFriend();
+
     }
 }
-
-
-
 
 function spwanDrops(){
     const drop = {
@@ -204,6 +206,7 @@ const endGame = () =>{
 	) {
 	    gamestate = "play";
 	    window.location.reload();
+
 	
 	}
     });
@@ -212,7 +215,7 @@ const endGame = () =>{
 
 
 const colorDrops = () =>{
-    if (gamestate !== "play") return;
+    if (gamestate !== "play" && !animationControl) return;
 
     context.clearRect(0, 0, canvas.width, canvas.height);
     for(let i = 0; i < drops.length; i++){
@@ -245,9 +248,9 @@ const colorDrops = () =>{
     }
     
     circle();   
-
-    animationId = requestAnimationFrame(colorDrops);
-  
+    if(animationControl === true)    
+	animationId = requestAnimationFrame(colorDrops);
+    
 
 }
 
