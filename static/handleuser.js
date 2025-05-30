@@ -1,5 +1,13 @@
 async function handleUser(){
     try{
+	const currentParams = new URLSearchParams(window.location.search);
+	const existingRoomId = currentParams.get("roomId");
+
+	if (existingRoomId) {
+            // Don't create a new link — reuse the existing one
+            return `${window.location.origin}/?roomId=${existingRoomId}`;
+	}
+	
 	let url = "http://localhost:6969/newlink"
 	let data = "create new link"
 	let res = await fetch(url, {
@@ -14,20 +22,5 @@ async function handleUser(){
     }
 }
 
-function createWebSocket(){
-//    console.log(window.location.search)
-    if(window.location.search != ''){
-	let socket = new WebSocket("ws://localhost:6969/ws")
-	socket.onopen = (e) =>{
-	    socket.send("Request from the Client")
-	}
-	
-	socket.onmessage = (e) =>{
-	    console.log(e.data)
-	}
-    }
-   
-}
 
-createWebSocket()
 export default handleUser

@@ -5,6 +5,8 @@ const context2 = document.getElementById("scoreCanvas").getContext("2d");
 canvas.width = 1000;
 canvas.height = 500;
 
+const initUrlParser = new URLSearchParams(window.location.search);
+const getRoomIdForUserAuth = initUrlParser.get("roomId")
 let gamestate = "home"
 let radius = 40;
 let x = canvas.width-500;
@@ -13,7 +15,8 @@ const dradius = 10;
 const drops = [];
 const colors = ['red', 'green', 'blue', 'yellow'];
 const circleColors = ['red', 'green', 'blue', 'yellow'];
-let playercolor = circleColors[Math.floor(Math.random()*colors.length)];
+let playercolor;
+    //= circleColors[Math.floor(Math.random()*colors.length)];
 let score = 0;
 let animationId;
 let clickBound = false;
@@ -24,6 +27,49 @@ function init (){
 	playButton()
     }
 
+}
+
+if(getRoomIdForUserAuth){
+    gamestate = "joining"
+    userJoiningCheck(getRoomIdForUserAuth);
+    
+}else{
+    gamestate = "home"
+    playercolor = circleColors[Math.floor(Math.random()*colors.length)]
+    init();
+}
+
+function userJoiningCheck(roomId){
+    if (gamestate != "joining") return;
+    let socket = new WebSocket("ws://localhost:6969/ws")
+    socket.onopen = () => {
+	console.log("WebSocket connected!");
+	if (getRoomIdForUserAuth != "") {
+            socket.send(JSON.stringify({
+		type: "join",
+		roomId
+            }))
+	}
+    };
+    
+    socket.onmessage = (e) =>{
+	let serverdata = JSON.parse(e.data)
+	console.log(serverdata.message)
+	if(serverdata.message == "successful"){
+	    playercolor = serverdata.color
+	    gamestate = "play"
+	    animationId = requestAnimationFrame(colorDrops);
+	    inviteFriend()
+	    
+	}
+
+	socket.onerror = (e) => {
+	    console.error("WebSocket error:", e);
+	}
+
+
+	
+    }
 }
 
 function copyUrlPrompt(urlToShow){
@@ -59,7 +105,7 @@ function copyUrlPrompt(urlToShow){
 		    context.clearRect(rectX, rectY, rectWidth, rectHeight)
 		    animationControl = true;
 		    animationId = requestAnimationFrame(colorDrops);
-
+		     window.location.replace(urlToShow);
 		})
                 .catch(err => console.error("Copy failed:", err));
         }
@@ -77,7 +123,9 @@ function inviteFriend(){
     button.onclick = async function (){
 	let result = await handleUser()
 	copyUrlPrompt(result)
-	history.replaceState({},'',result)
+//	window.location.replace(result)
+	//history.replaceState({},'',result)
+	
     }
 
 
@@ -183,34 +231,51 @@ const scoreUpdate = (scoreIncrease)=>{
     context2.fillText(`: ${scoreIncrease}`, 40, 35);
 }
 
-const endGame = () =>{
-    cancelAnimationFrame(animationId); 
+function handleRestartClick(event) {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    const symbolX = canvas.width - 500;
+    const symbolY = canvas.height - 200;
+    const symbolWidth = 40;
+    const symbolHeight = 48;
+
+    if (
+        mouseX >= symbolX &&
+        mouseX <= symbolX + symbolWidth &&
+        mouseY >= symbolY - symbolHeight &&
+        mouseY <= symbolY
+    ) {
+        // Reset game state
+        gamestate = "play";
+        score = 0;
+        drops.length = 0; // Clear drops array
+        animationControl = true;
+        scoreUpdate(score);
+
+        // Remove this listener after first click
+        canvas.removeEventListener("click", handleRestartClick);
+
+        // Restart animation
+        animationId = requestAnimationFrame(colorDrops);
+
+        inviteFriend(); // optional
+    }
+}
+
+const endGame = () => {
+    cancelAnimationFrame(animationId);
+
     context.fillStyle = "black";
     context.font = "48px sans-serif";
-    context.fillText("Game Over", canvas.width / 2 - 100, canvas.height / 2)
-    context.fillText("⟳", canvas.width - 500, canvas.height-200)
-    canvas.addEventListener("click", (event) => {
-	const rect = canvas.getBoundingClientRect();
-	const mouseX = event.clientX - rect.left;
-	const mouseY = event.clientY - rect.top;
-	const symbolX = canvas.width - 500;
-	const symbolY = canvas.height-200;
-	const symbolWidth = 40;
-	const symbolHeight = 48;
+    context.fillText("Game Over", canvas.width / 2 - 100, canvas.height / 2);
+    context.fillText("⟳", canvas.width - 500, canvas.height - 200);
 
-	if (
-	    mouseX >= symbolX &&
-		mouseX <= symbolX + symbolWidth &&
-		mouseY >= symbolY - symbolHeight &&
-		mouseY <= symbolY
-	) {
-	    gamestate = "play";
-	    window.location.reload();
-
-	
-	}
-    });
+    // Avoid multiple registrations
+    canvas.removeEventListener("click", handleRestartClick);
+    canvas.addEventListener("click", handleRestartClick);
 }
+
 
 
 
@@ -254,4 +319,4 @@ const colorDrops = () =>{
 
 }
 
-init();
+init()
