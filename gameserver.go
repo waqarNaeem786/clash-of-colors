@@ -7,7 +7,6 @@ import (
 	"io"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"encoding/json"
 	"log"
 	"sync"
 )
@@ -23,24 +22,26 @@ type userId struct{
 }
 
 var (
-	rooms = make(map[string]*Room)
+	rooms = make(map[string][]*websocket.Conn)
 	mu sync.Mutex
 )
 
 
-type PlayerColor struct{
+type PlayerProps struct{
 	Color string `json:"color"`
 	Message string `json:"message"`
+	PlayerNo int `json:"playerNo"`
 }
 
 
-type Room struct{
-	Players []*websocket.Conn
-}
+
 var generatedIds userId;
 type Message struct{
 	Type string `json:"type"`
 	RoomId string `json:"roomId"`
+	Move     string `json:"move"`    
+	Score    int    `json:"score"`
+	Color string `json:color`
 }
 
 
@@ -50,64 +51,90 @@ func createWebsocket(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
-	defer conn.Close()
 
 	var msg Message
+	var color string
 
-	for {
-		// Read message from client
-		messageType, message, err := conn.ReadMessage()
-		if err != nil {
-			fmt.Println("Read error:", err)
-			break
-		}
+	if err := conn.ReadJSON(&msg); err != nil {
+		log.Println("Unmarshal error:", err)
+		
+	}
 
-		if err := json.Unmarshal(message, &msg); err != nil {
-			log.Println("Unmarshal error:", err)
-			continue
-		}
+	roomId := msg.RoomId
+	if roomId == ""{
+		log.Fatal("Missing Roomid")
+		return
+	}
 
-		roomId := msg.RoomId
-		if roomId == "" {
-			fmt.Println("Missing roomId")
-			continue
-		}
-
+	defer func() {
 		mu.Lock()
-
-		// Get or create the room
-		room, exists := rooms[roomId]
-		if !exists {
-			room = &Room{}
-			rooms[roomId] = room
+		defer mu.Unlock()
+		room := rooms[roomId]
+		for i, c := range room {
+			if c == conn {
+				rooms[roomId] = append(room[:i], room[i+1:]...)
+				break
+			}
 		}
+		conn.Close()
+	}()
 
-		// Check if room is full
-		if len(room.Players) >= 2 {
-			mu.Unlock()
-			errMsg := PlayerColor{Color: "none", Message: "room full"}
-			errJson, _ := json.Marshal(errMsg)
-			conn.WriteMessage(messageType, errJson)
-			break
+
+
+	mu.Lock()
+	room, exists := rooms[roomId]
+	if !exists {
+		rooms[roomId] = []*websocket.Conn{conn}
+	} else {
+		rooms[roomId] = append(room, conn)
+	}
+	
+	room = rooms[roomId]
+
+	playerIndex := len(room)-1
+	mu.Unlock()
+	if playerIndex >= 2{
+
+		errMsg := PlayerProps{
+			Color: "none",
+			Message: "room full",
 		}
-
-		// Add the player
-		room.Players = append(room.Players, conn)
-		playerIndex := len(room.Players) - 1
-		mu.Unlock()
-
-		// Assign color
-		color := "green"
+		conn.WriteJSON(errMsg)
+		
+	}else{
+		
+		color = "green"
 		if playerIndex == 1 {
 			color = "red"
 		}
-
-		resp := PlayerColor{Color: color, Message: "successful"}
-		respJson, _ := json.Marshal(resp)
-		if err := conn.WriteMessage(messageType, respJson); err != nil {
-			fmt.Println("Write error:", err)
-			break
+		
+		resp := PlayerProps{
+			Color: color,
+			Message: "successful",
+			PlayerNo: playerIndex + 1,
 		}
+
+		conn.WriteJSON(resp)
+		
+	}
+
+	for {	
+		if err := conn.ReadJSON(&msg); err != nil {
+			log.Fatal("error:", err)
+			break
+			
+		}
+
+		mu.Lock()
+		currentRoom := rooms[roomId]
+		for i, c := range currentRoom {
+			if i != playerIndex { // Don't send to self
+				if err := c.WriteJSON(msg); err != nil {
+					log.Println("Write error:", err)
+				}
+			}
+		}
+		mu.Unlock()
 	}
 }
 
@@ -140,7 +167,7 @@ func newlink(w http.ResponseWriter, r *http.Request){
 	query.Set("roomId", roomid)
 	u.RawQuery = query.Encode()
 	generatedIds.Id = append(generatedIds.Id, roomid)
-	fmt.Println(generatedIds)
+	//fmt.Println(generatedIds)
 
 	// when the link is opened create websocket
 	if id := r.URL.Query().Get("roomId"); id != ""{

@@ -5,6 +5,10 @@ const context2 = document.getElementById("scoreCanvas").getContext("2d");
 canvas.width = 1000;
 canvas.height = 500;
 
+let opponentScore = 0;
+let opponentX = canvas.width - 800;
+let opponentY = canvas.height - 40;
+let socket = null;
 const initUrlParser = new URLSearchParams(window.location.search);
 const getRoomIdForUserAuth = initUrlParser.get("roomId")
 let gamestate = "home"
@@ -21,6 +25,7 @@ let score = 0;
 let animationId;
 let clickBound = false;
 let animationControl = true;
+let move;
 
 function init (){
     if(gamestate === "home"){
@@ -39,22 +44,43 @@ if(getRoomIdForUserAuth){
     init();
 }
 
+function createOpponent(opponentData){
+      switch (opponentData.move) {
+        case "ArrowUp":
+            if (opponentY - radius - 20 >= 0) opponentY -= 20;
+            break;
+        case "ArrowDown":
+            if (opponentY + radius + 20 <= canvas.height) opponentY += 20;
+            break;
+        case "ArrowLeft":
+            if (opponentX - radius - 20 >= 0) opponentX -= 20;
+            break;
+        case "ArrowRight":
+            if (opponentX + radius + 20 <= canvas.width) opponentX += 20;
+            break;
+    }
+}
+
 function userJoiningCheck(roomId){
     if (gamestate != "joining") return;
-    let socket = new WebSocket("ws://localhost:6969/ws")
+    socket = new WebSocket("ws://localhost:6969/ws")
+
     socket.onopen = () => {
 	console.log("WebSocket connected!");
 	if (getRoomIdForUserAuth != "") {
             socket.send(JSON.stringify({
 		type: "join",
-		roomId
+		roomId,
+		move,
+		score
+		
             }))
 	}
     };
     
     socket.onmessage = (e) =>{
 	let serverdata = JSON.parse(e.data)
-	console.log(serverdata.message)
+	console.log(serverdata)
 	if(serverdata.message == "successful"){
 	    playercolor = serverdata.color
 	    gamestate = "play"
@@ -63,6 +89,12 @@ function userJoiningCheck(roomId){
 	    
 	}
 
+	if(serverdata.type === "move"){
+	    createOpponent(serverdata)
+	    opponentScore = serverdata.score
+	    scoreUpdate()
+	}
+	
 	socket.onerror = (e) => {
 	    console.error("WebSocket error:", e);
 	}
@@ -189,47 +221,87 @@ function movement(){
     case 'ArrowUp':
         if (y - radius - 20 >= 0) {
 	    y -= 20;
-        }
+	    move = "ArrowUp"
+	}
+	
         break;
 
     case 'ArrowDown':
         if (y + radius + 20 <= canvas.height) {
 	    y += 20;
+	    move = "ArrowDown"
         }
+
         break;
 
     case 'ArrowLeft':
         if (x - radius - 20 >= 0) {
 	    x -= 20;
+	    move = "ArrowLeft"
         }
+
         break;
 
     case 'ArrowRight':
         if (x + radius + 20 <= canvas.width) {
 	    x += 20;
+	    move = "ArrowRight"
         }
+
 
         break;
     }
     event.preventDefault();
     circle()
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: "move",
+            roomId: getRoomIdForUserAuth,
+            move: move,
+            score: score 
+        }));
+    }
 }
 
 document.addEventListener("keydown", movement)
 
-const scoreUpdate = (scoreIncrease)=>{
-    context2.clearRect(0, 0, canvas.width, canvas.height); 
+const scoreUpdate = () => {
+    // Clear entire score canvas once
+    context2.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw player score circle
     context2.beginPath();
     context2.arc(20, 30, 15, 0, 2 * Math.PI);
     context2.fillStyle = playercolor;
     context2.fill();
     context2.closePath();
 
-    // Draw score text
+    // Draw player score text
     context2.fillStyle = "black";
     context2.font = "20px sans-serif";
-    context2.fillText(`: ${scoreIncrease}`, 40, 35);
+    context2.fillText(`: ${score}`, 40, 35);
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+	// Draw opponent score circle
+	context2.beginPath();
+	context2.arc(20, 60, 15, 0, 2 * Math.PI);
+	// Opponent color opposite to player color
+	if (playercolor === "green") {
+            context2.fillStyle = "red";
+	} else if (playercolor === "red") {
+            context2.fillStyle = "green";
+	}
+	context2.fill();
+	context2.closePath();
+
+	// Draw opponent score text
+	context2.fillStyle = "black";
+	context2.font = "20px sans-serif";
+	context2.fillText(`: ${opponentScore ?? 0}`, 40, 65);
+    }
 }
+
 
 function handleRestartClick(event) {
     const rect = canvas.getBoundingClientRect();
@@ -251,7 +323,7 @@ function handleRestartClick(event) {
         score = 0;
         drops.length = 0; // Clear drops array
         animationControl = true;
-        scoreUpdate(score);
+
 
         // Remove this listener after first click
         canvas.removeEventListener("click", handleRestartClick);
@@ -298,9 +370,10 @@ const colorDrops = () =>{
 	if(distance < dradius + radius){
 	    if(drop.color === playercolor){
 		score++;
+		scoreUpdate()
 		drops.splice(i, 1);
 		i--;
-		scoreUpdate(score);
+		
 	    }else{
 		endGame();
 		return
@@ -312,7 +385,20 @@ const colorDrops = () =>{
         spwanDrops()
     }
     
-    circle();   
+    circle();
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+	context.beginPath();
+	context.arc(opponentX, opponentY, radius, 0, 2 * Math.PI);
+	if(playercolor === "green"){
+	    context.fillStyle = "red";
+	}else if(playercolor === "red"){
+	    context.fillStyle = "green";
+	}
+	context.fill();
+	context.closePath();
+    }
+
     if(animationControl === true)    
 	animationId = requestAnimationFrame(colorDrops);
     
